@@ -9,28 +9,27 @@ int main() {
     logger.setLogLevel(Logger::LogLevel::DEBUG); // Enable all log levels
     CINFO("Logger Initialized.");
 
-    // Database credentials
+    // InfluxDB connection credentials
     std::string host = "localhost";
-    std::string port = "8812";  // QuestDB uses PostgreSQL protocol on port 8812
-    std::string db_name = "qdb";
-    std::string db_user = "admin";
-    std::string db_password = "quest";
+    std::string port = "8086";  // Default InfluxDB port
+    std::string db_name = "trade_data";
+    std::string db_user = "cogent";
+    std::string db_password = "Hellohi21!";  // Replace with actual credentials
 
-    // Create a data handler object
+    // Create a DataHandler object for InfluxDB
     DataHandler dataHandler(host, port, db_name, db_user, db_password);
 
-    // Example data
+    // Example trade data
     std::string symbol = "SPY";
     double price = 7296.89;
-    long long timestamp = 1575526691134;
+    long long timestamp = 1575526691134;  // Timestamp in milliseconds
     double volume = 200;
 
-    // Insert the trade data into the table
+    // Insert the trade data into InfluxDB
     dataHandler.insertTrade(symbol, price, timestamp, volume);
 
     // Example: Retrieve data
     dataHandler.retrieveData("SELECT * FROM trades");
-
 
     return 0;
 }
