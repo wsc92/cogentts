@@ -1,6 +1,5 @@
 #include "data_handler.hpp"
 #include "../defines.hpp"
-#include <influxdb.hpp>
 #include <chrono>
 #include <memory>  // for std::shared_ptr
 

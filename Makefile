@@ -1,9 +1,9 @@
 # Compiler and flags
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -O2 -I src -I src/core
+CXXFLAGS := -std=c++17 -Wall -Wextra -O2 -I src -I src/core -I /usr/include/influxdb-cxx
 
 # Linker flags for libraries
-LDFLAGS := -L/path/to/pqxx/lib -lpqxx -lpq -L/path/to/questdb-ingress/lib -lquestdb-ingress
+LDFLAGS := -L /usr/lib -lInfluxDB
 
 # Directories
 SRCDIR := src
@@ -35,10 +35,4 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 .PHONY: clean
 clean:
 	$(RM) -r $(OBJDIR) $(BINDIR)
-
-# Debug target to print variables (optional)
-.PHONY: debug
-debug:
-	@echo "Source Files: $(SRCS)"
-	@echo "Object Files: $(OBJS)"
 
