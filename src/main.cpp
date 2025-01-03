@@ -1,36 +1,42 @@
 #include "defines.hpp"
 #include "handlers/data_handler.hpp"
+#include <chrono>
 
 int main() {
-    Logger& logger = Logger::getInstance();
+    try {
+        // Initialize logger
+        Logger& logger = Logger::getInstance();
+        logger.setLogFile("logs/application.log");
+        logger.setLogLevel(Logger::LogLevel::DEBUG);
+        CINFO("Logger Initialized.");
 
-    // Set up logging
-    logger.setLogFile("logs/application.log");
-    logger.setLogLevel(Logger::LogLevel::DEBUG); // Enable all log levels
-    CINFO("Logger Initialized.");
+        // InfluxDB connection credentials
+        std::string host = "localhost";
+        std::string port = "8086";
+        std::string db_name = "trade_data";
+        std::string db_user = "cogent";
+        std::string db_password = "Hellohi21!";
 
-    // InfluxDB connection credentials
-    std::string host = "localhost";
-    std::string port = "8086";  // Default InfluxDB port
-    std::string db_name = "trade_data";
-    std::string db_user = "cogent";
-    std::string db_password = "Hellohi21!";  // Replace with actual credentials
+        CINFO("Attempting to connect to InfluxDB...");
+        
+        // First try without database to create it
+        {
+            // Try different URL format
+            DataHandler setupHandler("localhost", "8086", "", "", "");
+            CINFO("Testing basic connection...");
+            setupHandler.executeQuery("SHOW DATABASES");
+        }
 
-    // Create a DataHandler object for InfluxDB
-    DataHandler dataHandler(host, port, db_name, db_user, db_password);
+        CINFO("Basic connection successful, creating database...");
+        
+        // Now try with full credentials
+        DataHandler dataHandler(host, port, db_name, db_user, db_password);
+        CINFO("Connected to database successfully");
 
-    // Example trade data
-    std::string symbol = "SPY";
-    double price = 7296.89;
-    long long timestamp = 1575526691134;  // Timestamp in milliseconds
-    double volume = 200;
+        return 0;
 
-    // Insert the trade data into InfluxDB
-    dataHandler.insertTrade(symbol, price, timestamp, volume);
-
-    // Example: Retrieve data
-    dataHandler.retrieveData("SELECT * FROM trades");
-
-    return 0;
+    } catch (const std::exception& e) {
+        CERROR("Error in main: " + std::string(e.what()));
+        return 1;
+    }
 }
-

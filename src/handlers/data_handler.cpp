@@ -1,99 +1,94 @@
 #include "data_handler.hpp"
 #include "../defines.hpp"
 #include <chrono>
-#include <memory>  // for std::shared_ptr
-#include <influxdb-cxx/InfluxDBFactory.h> // Ensure this is included for InfluxDB client
-#include <influxdb-cxx/Point.h>
+#include <sstream>
+#include <influxdb-cxx/InfluxDBFactory.h>
 
 DataHandler::DataHandler(const std::string& db_host, const std::string& db_port, 
-                         const std::string& db_name, const std::string& db_user, 
-                         const std::string& db_password) {
+                       const std::string& db_name, const std::string& db_user, 
+                       const std::string& db_password) {
     try {
-        // Use InfluxDBFactory to get the client instance
-        std::string url = "http://" + db_host + ":" + db_port + "?db=" + db_name;
-        client = influxdb::InfluxDBFactory::Get(url);  // Correct usage of the InfluxDB client class
+        std::string url = "http://";
+        if (!db_user.empty() && !db_password.empty()) {
+            url += db_user + ":" + db_password + "@";
+        }
+        url += db_host + ":" + db_port + "?db=" + db_name;
+        
+        client = std::unique_ptr<influxdb::InfluxDB>(
+            influxdb::InfluxDBFactory::Get(url));
 
-        // Optionally, set authentication if needed
-        client->setAuth(db_user, db_password);
-
-        if (client->ping()) {
+        if (testConnection()) {
             CINFO("Connected to InfluxDB successfully!");
         } else {
-            CERROR("Failed to connect to InfluxDB!");
+            throw std::runtime_error("Failed to connect to InfluxDB");
         }
     } catch (const std::exception& e) {
-        CERROR("Error: " + std::string(e.what()));
+        CERROR("Connection error: " + std::string(e.what()));
+        throw;
     }
 }
 
-DataHandler::~DataHandler() {
+DataHandler::~DataHandler() = default;
+
+bool DataHandler::testConnection() const {
+    if (!client) return false;
+    
+    try {
+        client->query("SHOW DATABASES LIMIT 1");
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
 }
 
 void DataHandler::executeQuery(const std::string& query) {
+    if (!client) {
+        CERROR("Database client not initialized");
+        return;
+    }
+
     try {
-        // Execute the query and retrieve the result
-        auto result = client->query(query);  // Execute the query against InfluxDB
-        if (!result.empty()) {
-            CDEBUG("Query executed successfully!");
-            for (const auto& point : result) {
-                std::cout << point.getName() << ": ";
-                for (const auto& tag : point.getTags()) {
-                    std::cout << tag.first << "=" << tag.second << " ";
-                }
-                for (const auto& field : point.getFields()) {
-                    std::cout << field.first << "=" << field.second << " ";
-                }
-                std::cout << std::endl;
-            }
-        } else {
-            CERROR("Failed to execute query or no results.");
-        }
+        client->query(query);
+        CDEBUG("Query executed successfully!");
     } catch (const std::exception& e) {
         CERROR("Query execution error: " + std::string(e.what()));
     }
 }
 
 void DataHandler::insertTrade(const std::string& symbol, double price, 
-                              long long timestamp, double volume) {
-    try {
-        influxdb::Point point("trades");  // Correct usage of the Point class
-        point.addTag("symbol", symbol);
-        point.addTag("side", "buy");  // You can dynamically change "buy" based on data
-        point.addField("price", price);
-        point.addField("volume", volume);
-        point.setTimestamp(std::chrono::system_clock::from_time_t(timestamp));
+                           long long timestamp, double volume,
+                           const std::string& side) {
+    if (!client) {
+        CERROR("Database client not initialized");
+        return;
+    }
 
-        // Write the point to InfluxDB
-        bool success = client->write(point);
-        if (success) {
-            CINFO("Trade Inserted into InfluxDB.");
-        } else {
-            CERROR("Error inserting trade data into InfluxDB.");
-        }
+    try {
+        // Construct the InfluxDB line protocol string manually
+        std::stringstream ss;
+        ss << "trades,symbol=" << symbol << ",side=" << side 
+           << " price=" << price << ",volume=" << volume 
+           << " " << timestamp;
+
+        client->query("INSERT " + ss.str());
+        CINFO("Trade inserted successfully");
     } catch (const std::exception& e) {
-        CERROR("Error inserting trade data: " + std::string(e.what()));
+        CERROR("Trade insertion error: " + std::string(e.what()));
+        throw;
     }
 }
 
 void DataHandler::retrieveData(const std::string& query) {
+    if (!client) {
+        CERROR("Database client not initialized");
+        return;
+    }
+
     try {
-        auto result = client->query(query);  // Execute the query
-        if (!result.empty()) {
-            for (const auto& point : result) {
-                std::cout << point.getName() << ": ";
-                for (const auto& tag : point.getTags()) {
-                    std::cout << tag.first << "=" << tag.second << " ";
-                }
-                for (const auto& field : point.getFields()) {
-                    std::cout << field.first << "=" << field.second << " ";
-                }
-                std::cout << std::endl;
-            }
-        } else {
-            CERROR("Retrieve data error: No result returned.");
-        }
+        client->query(query);
+        CDEBUG("Data retrieved successfully");
     } catch (const std::exception& e) {
-        CERROR("Retrieve data error: " + std::string(e.what()));
+        CERROR("Data retrieval error: " + std::string(e.what()));
+        throw;
     }
 }
-
